@@ -31,6 +31,7 @@ dependencies {
     compile 'com.android.support:appcompat-v7:+'
     compile 'com.google.android.gms:play-services:9.8.0'
     compile project(':BaseGameUtils')
+    compile 'com.jakewharton:butterknife:7.0.1'
 }
 buildscript {
     repositories {

@@ -13,8 +13,8 @@ import android.widget.TextView;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.games.Games;
-import com.google.android.gms.games.GamesStatusCodes;
 import com.google.android.gms.games.GamesActivityResultCodes;
+import com.google.android.gms.games.GamesStatusCodes;
 import com.google.android.gms.games.multiplayer.Invitation;
 import com.google.android.gms.games.multiplayer.Multiplayer;
 import com.google.android.gms.games.multiplayer.OnInvitationReceivedListener;
@@ -25,7 +25,6 @@ import com.google.android.gms.games.multiplayer.realtime.Room;
 import com.google.android.gms.games.multiplayer.realtime.RoomConfig;
 import com.google.android.gms.games.multiplayer.realtime.RoomStatusUpdateListener;
 import com.google.android.gms.games.multiplayer.realtime.RoomUpdateListener;
-
 import com.google.example.games.basegameutils.BaseGameUtils;
 
 import java.util.ArrayList;
@@ -35,6 +34,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+
+import butterknife.Bind;
+import butterknife.ButterKnife;
 
 /**
  * Button Clicker 2000. A minimalistic game showing the multiplayer features of
@@ -60,6 +62,10 @@ public class MainActivity extends Activity
         View.OnClickListener, RealTimeMessageReceivedListener,
         RoomStatusUpdateListener, RoomUpdateListener, OnInvitationReceivedListener {
 
+    private boolean playerHasRolled = false;
+    private boolean opponentHasRolled = false;
+
+    @Bind(R.id.roll_instructions) TextView mInstructions;
     /*
      * API INTEGRATION SECTION. This section contains the code that integrates
      * the game with the Google Play game services API.
@@ -106,14 +112,14 @@ public class MainActivity extends Activity
     String mIncomingInvitationId = null;
 
     // Message buffer for sending messages
-    byte[] mMsgBuf = new byte[2];
+    byte[] mMsgBuf = new byte[3];
 
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+    ButterKnife.bind(this);
         // Create the Google Api Client with access to Games
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -183,10 +189,16 @@ public class MainActivity extends Activity
                 // user wants to play against a random opponent right now
                 startQuickGame();
                 break;
-            case R.id.button_click_me:
+            case R.id.button_category_1:
                 // (gameplay) user clicked the "click me" button
-                scoreOnePoint();
+                broadcastCategory(0, 0);
                 break;
+            case R.id.button_category_2:
+                // (gameplay) user clicked the "click me" button
+                broadcastCategory(1, 0);
+                break;
+            case R.id.button_roll:
+                rollDice();
         }
     }
 
@@ -614,7 +626,7 @@ public class MainActivity extends Activity
             mParticipants = room.getParticipants();
         }
         if (mParticipants != null) {
-            updatePeerScoresDisplay();
+//            updatePeerScoresDisplay();
         }
     }
 
@@ -636,21 +648,24 @@ public class MainActivity extends Activity
         mScore = 0;
         mParticipantScore.clear();
         mFinishedParticipants.clear();
+        playerHasRolled = false;
+        opponentHasRolled = false;
+
     }
 
     // Start the gameplay phase of the game.
     void startGame(boolean multiplayer) {
         // Creates a new random number generator
-        Random randGen = new Random();
-        mRoll = randGen.nextInt(100);
+
 
         mMultiplayer = multiplayer;
-        updateScoreDisplay();
-        broadcastRoll();
-        broadcastScore(false);
+//        updateScoreDisplay();
+//        broadcastScore(false);
         switchToScreen(R.id.screen_game);
 
-        findViewById(R.id.button_click_me).setVisibility(View.VISIBLE);
+//        findViewById(R.id.button_click_me).setVisibility(View.VISIBLE);
+        findViewById(R.id.button_category_1).setVisibility(View.INVISIBLE);
+        findViewById(R.id.button_category_2).setVisibility(View.INVISIBLE);
 
         // run the gameTick() method every second to update the game.
         final Handler h = new Handler();
@@ -667,6 +682,9 @@ public class MainActivity extends Activity
 
     // Game tick -- update countdown, check if game ended.
     void gameTick() {
+        if(playerHasRolled && opponentHasRolled){
+            broadcastRoll();
+        }
         if (mSecondsLeft > 0)
             --mSecondsLeft;
 
@@ -676,22 +694,11 @@ public class MainActivity extends Activity
 
         if (mSecondsLeft <= 0) {
             // finish game
-            findViewById(R.id.button_click_me).setVisibility(View.GONE);
-            broadcastScore(true);
+//            findViewById(R.id.button_click_me).setVisibility(View.GONE);
+//            broadcastScore(true);
         }
     }
 
-    // indicates the player scored one point
-    void scoreOnePoint() {
-        if (mSecondsLeft <= 0)
-            return; // too late!
-        ++mScore;
-        updateScoreDisplay();
-        updatePeerScoresDisplay();
-
-        // broadcast our new score to our peers
-        broadcastScore(false);
-    }
 
     /*
      * COMMUNICATIONS SECTION. Methods that implement the game's network
@@ -711,23 +718,56 @@ public class MainActivity extends Activity
     // whether it's a final or interim score. The second byte is the score.
     // There is also the
     // 'S' message, which indicates that the game should start.
+    public void getQuestion(int category, int qIndex){
+
+    }
+    Random randGen = new Random();
+
+    public void rollDice(){
+        mRoll = randGen.nextInt(99);
+        broadcastHasRolled();
+        playerHasRolled = true;
+    }
     @Override
     public void onRealTimeMessageReceived(RealTimeMessage rtm) {
         byte[] buf = rtm.getMessageData();
         String sender = rtm.getSenderParticipantId();
         Log.d(TAG, "Message received: " + (char) buf[0] + "/" + (int) buf[1]);
+        if(buf[0] == 'Q' && playerHasRolled){
+            opponentHasRolled = true;
+        }
 
         if(buf[0] == 'R'){
+            findViewById(R.id.button_roll).setVisibility(View.INVISIBLE);
             int opponentRoll = buf[1];
-            Log.d("MATT ** ", "received");
             if(mRoll > opponentRoll){
                 // TODO: 12/21/16 This Player Chooses First Category 
                 Log.d("MATT **** ", " You won the roll " + mRoll + " - " + opponentRoll);
-            }else{
-                // TODO: 12/21/16 This Player Waits For First Question 
-                Log.d("MATT **** ", " You lost the roll " + mRoll + " - " + opponentRoll);
+                mInstructions.setText("Choose A Category  " + mRoll + "   " + opponentRoll);
+
+                findViewById(R.id.button_category_1).setVisibility(View.VISIBLE);
+                findViewById(R.id.button_category_2).setVisibility(View.VISIBLE);
 
             }
+            if (mRoll < opponentRoll){
+                // TODO: 12/21/16 This Player Waits For First Question 
+                Log.d("MATT **** ", " You lost the roll " + mRoll + " - " + opponentRoll);
+                mInstructions.setText("You lost the roll opponent is choosing the first category");
+            }
+            if(mRoll == opponentRoll){
+                // TODO: 12/22/16 re-roll
+                Log.d("MATT **** ", " tie");
+                rollDice();
+                broadcastRoll();
+            }
+        }
+
+        if(buf[0] == 'C'){
+            int selectedCategory = buf[1];
+            int questionIndex = buf[2];
+            Log.d("MATT ** ", "category " + selectedCategory + "   " +  questionIndex);
+            getQuestion(selectedCategory, questionIndex);
+
         }
 
 
@@ -747,8 +787,6 @@ public class MainActivity extends Activity
                 mParticipantScore.put(sender, thisScore);
             }
 
-            // update the scores on the screen
-            updatePeerScoresDisplay();
 
             // if it's a final score, mark this participant as having finished
             // the game
@@ -758,9 +796,28 @@ public class MainActivity extends Activity
         }
     }
 
+    // Broadcast selected category
+    void broadcastCategory(int categoryId, int questionIndex){
+        if(!mMultiplayer)
+            return;
+        mMsgBuf[0] = (byte) ('C');
+        mMsgBuf[1] = (byte) (categoryId);
+        mMsgBuf[2] = (byte) (questionIndex);
+        for(Participant p : mParticipants){
+            if (p.getParticipantId().equals(mMyId)) // Dont send msg to my self
+                continue;
+            if (p.getStatus() != Participant.STATUS_JOINED) // Dont send if no participants in room
+                continue;
+
+            // reliable message
+            Games.RealTimeMultiplayer.sendReliableMessage(mGoogleApiClient, null, mMsgBuf,
+                    mRoomId, p.getParticipantId());
+        }
+    }
+
     // Broadcast my roll
     void broadcastRoll(){
-        Log.d("MATT ", "  sent");
+
         if(!mMultiplayer)
             return;
 
@@ -773,41 +830,60 @@ public class MainActivity extends Activity
             if (p.getStatus() != Participant.STATUS_JOINED)
                 continue;
 
-            // final score notification must be sent via reliable message
+            // reliable message
             Games.RealTimeMultiplayer.sendReliableMessage(mGoogleApiClient, null, mMsgBuf,
                         mRoomId, p.getParticipantId());
 
         }
     }
 
-    // Broadcast my score to everybody else.
-    void broadcastScore(boolean finalScore) {
-        if (!mMultiplayer)
-            return; // playing single-player mode
+    void broadcastHasRolled(){
+        if(!mMultiplayer)
+            return;
 
-        // First byte in message indicates whether it's a final score or not
-        mMsgBuf[0] = (byte) (finalScore ? 'F' : 'U');
+        mMsgBuf[0] = (byte) ('Q');
 
-        // Second byte is the score.
-        mMsgBuf[1] = (byte) mScore;
-
-        // Send to every other participant.
         for (Participant p : mParticipants) {
             if (p.getParticipantId().equals(mMyId))
                 continue;
             if (p.getStatus() != Participant.STATUS_JOINED)
                 continue;
-            if (finalScore) {
-                // final score notification must be sent via reliable message
-                Games.RealTimeMultiplayer.sendReliableMessage(mGoogleApiClient, null, mMsgBuf,
-                        mRoomId, p.getParticipantId());
-            } else {
-                // it's an interim score notification, so we can use unreliable
-                Games.RealTimeMultiplayer.sendUnreliableMessage(mGoogleApiClient, mMsgBuf, mRoomId,
-                        p.getParticipantId());
-            }
+
+            // reliable message
+            Games.RealTimeMultiplayer.sendReliableMessage(mGoogleApiClient, null, mMsgBuf,
+                    mRoomId, p.getParticipantId());
+
         }
     }
+
+    // Broadcast my score to everybody else.
+//    void broadcastScore(boolean finalScore) {
+//        if (!mMultiplayer)
+//            return; // playing single-player mode
+//
+//        // First byte in message indicates whether it's a final score or not
+//        mMsgBuf[0] = (byte) (finalScore ? 'F' : 'U');
+//
+//        // Second byte is the score.
+//        mMsgBuf[1] = (byte) mScore;
+//
+//        // Send to every other participant.
+//        for (Participant p : mParticipants) {
+//            if (p.getParticipantId().equals(mMyId))
+//                continue;
+//            if (p.getStatus() != Participant.STATUS_JOINED)
+//                continue;
+//            if (finalScore) {
+//                // final score notification must be sent via reliable message
+//                Games.RealTimeMultiplayer.sendReliableMessage(mGoogleApiClient, null, mMsgBuf,
+//                        mRoomId, p.getParticipantId());
+//            } else {
+//                // it's an interim score notification, so we can use unreliable
+//                Games.RealTimeMultiplayer.sendUnreliableMessage(mGoogleApiClient, mMsgBuf, mRoomId,
+//                        p.getParticipantId());
+//            }
+//        }
+//    }
 
     /*
      * UI SECTION. Methods that implement the game's UI.
@@ -818,8 +894,9 @@ public class MainActivity extends Activity
     final static int[] CLICKABLES = {
             R.id.button_accept_popup_invitation, R.id.button_invite_players,
             R.id.button_quick_game, R.id.button_see_invitations, R.id.button_sign_in,
-            R.id.button_sign_out, R.id.button_click_me, R.id.button_single_player,
-            R.id.button_single_player_2
+            R.id.button_sign_out, R.id.button_single_player,
+            R.id.button_single_player_2, R.id.button_category_1, R.id.button_category_2,
+            R.id.button_roll,
     };
 
     // This array lists all the individual screens our game has.
@@ -859,45 +936,32 @@ public class MainActivity extends Activity
         }
     }
 
-    // updates the label that shows my score
-    void updateScoreDisplay() {
-        ((TextView) findViewById(R.id.my_score)).setText(formatScore(mScore));
-    }
-
-    // formats a score as a three-digit number
-    String formatScore(int i) {
-        if (i < 0)
-            i = 0;
-        String s = String.valueOf(i);
-        return s.length() == 1 ? "00" + s : s.length() == 2 ? "0" + s : s;
-    }
-
 
     // updates the screen with the scores from our peers
-    void updatePeerScoresDisplay() {
-        ((TextView) findViewById(R.id.score0)).setText(formatScore(mScore) + " - Me");
-        int[] arr = {
-                R.id.score1, R.id.score2, R.id.score3
-        };
-        int i = 0;
-
-        if (mRoomId != null) {
-            for (Participant p : mParticipants) {
-                String pid = p.getParticipantId();
-                if (pid.equals(mMyId))
-                    continue;
-                if (p.getStatus() != Participant.STATUS_JOINED)
-                    continue;
-                int score = mParticipantScore.containsKey(pid) ? mParticipantScore.get(pid) : 0;
-                ((TextView) findViewById(arr[i])).setText(formatScore(score) + " - " + p.getDisplayName());
-                ++i;
-            }
-        }
-
-        for (; i < arr.length; ++i) {
-            ((TextView) findViewById(arr[i])).setText("");
-        }
-    }
+//    void updatePeerScoresDisplay() {
+//        ((TextView) findViewById(R.id.score0)).setText(formatScore(mScore) + " - Me");
+//        int[] arr = {
+//                R.id.score1, R.id.score2, R.id.score3
+//        };
+//        int i = 0;
+//
+//        if (mRoomId != null) {
+//            for (Participant p : mParticipants) {
+//                String pid = p.getParticipantId();
+//                if (pid.equals(mMyId))
+//                    continue;
+//                if (p.getStatus() != Participant.STATUS_JOINED)
+//                    continue;
+//                int score = mParticipantScore.containsKey(pid) ? mParticipantScore.get(pid) : 0;
+//                ((TextView) findViewById(arr[i])).setText(formatScore(score) + " - " + p.getDisplayName());
+//                ++i;
+//            }
+//        }
+//
+//        for (; i < arr.length; ++i) {
+//            ((TextView) findViewById(arr[i])).setText("");
+//        }
+//    }
 
     /*
      * MISC SECTION. Miscellaneous methods.
