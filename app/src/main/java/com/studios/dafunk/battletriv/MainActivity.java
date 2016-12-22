@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 /**
@@ -106,6 +107,7 @@ public class MainActivity extends Activity
 
     // Message buffer for sending messages
     byte[] mMsgBuf = new byte[2];
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -620,10 +622,13 @@ public class MainActivity extends Activity
      * GAME LOGIC SECTION. Methods that implement the game's rules.
      */
 
+
+
     // Current state of the game:
     int mSecondsLeft = -1; // how long until the game ends (seconds)
     final static int GAME_DURATION = 20; // game duration, seconds.
     int mScore = 0; // user's current score
+    int mRoll;
 
     // Reset game variables in preparation for a new game.
     void resetGameVars() {
@@ -635,8 +640,13 @@ public class MainActivity extends Activity
 
     // Start the gameplay phase of the game.
     void startGame(boolean multiplayer) {
+        // Creates a new random number generator
+        Random randGen = new Random();
+        mRoll = randGen.nextInt(100);
+
         mMultiplayer = multiplayer;
         updateScoreDisplay();
+        broadcastRoll();
         broadcastScore(false);
         switchToScreen(R.id.screen_game);
 
@@ -707,6 +717,20 @@ public class MainActivity extends Activity
         String sender = rtm.getSenderParticipantId();
         Log.d(TAG, "Message received: " + (char) buf[0] + "/" + (int) buf[1]);
 
+        if(buf[0] == 'R'){
+            int opponentRoll = buf[1];
+            Log.d("MATT ** ", "received");
+            if(mRoll > opponentRoll){
+                // TODO: 12/21/16 This Player Chooses First Category 
+                Log.d("MATT **** ", " You won the roll " + mRoll + " - " + opponentRoll);
+            }else{
+                // TODO: 12/21/16 This Player Waits For First Question 
+                Log.d("MATT **** ", " You lost the roll " + mRoll + " - " + opponentRoll);
+
+            }
+        }
+
+
         if (buf[0] == 'F' || buf[0] == 'U') {
             // score update.
             int existingScore = mParticipantScore.containsKey(sender) ?
@@ -731,6 +755,28 @@ public class MainActivity extends Activity
             if ((char) buf[0] == 'F') {
                 mFinishedParticipants.add(rtm.getSenderParticipantId());
             }
+        }
+    }
+
+    // Broadcast my roll
+    void broadcastRoll(){
+        Log.d("MATT ", "  sent");
+        if(!mMultiplayer)
+            return;
+
+        mMsgBuf[0] = (byte) ('R');
+        mMsgBuf[1] = (byte) (mRoll);
+
+        for (Participant p : mParticipants) {
+            if (p.getParticipantId().equals(mMyId))
+                continue;
+            if (p.getStatus() != Participant.STATUS_JOINED)
+                continue;
+
+            // final score notification must be sent via reliable message
+            Games.RealTimeMultiplayer.sendReliableMessage(mGoogleApiClient, null, mMsgBuf,
+                        mRoomId, p.getParticipantId());
+
         }
     }
 
