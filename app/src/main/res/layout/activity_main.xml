@@ -65,15 +65,15 @@ tools:context="com.studios.dafunk.battletriv.MainActivity">
     <TextView
         android:id="@+id/roll_instructions"
         style="@style/Instructions"
-        android:text="wait" />
+        android:text="Roll the dice to decide who chooses the first category!" />
     <TextView android:id="@+id/my_score" style="@style/ScoreDisplay" />
     <Button android:id="@+id/button_category_1"
         style="@style/GameButton"
-        android:text="Category 1"
+        android:text="Animals"
         android:layout_marginBottom="20dp" />
     <Button android:id="@+id/button_category_2"
     style="@style/GameButton"
-    android:text="Category 2"
+    android:text="Art"
     android:layout_marginBottom="20dp" />
     <Button android:id="@+id/button_roll"
         style="@style/GameButton"
@@ -82,10 +82,10 @@ tools:context="com.studios.dafunk.battletriv.MainActivity">
     <TextView android:id="@+id/countdown" style="@style/FigureLabel" />
 
     <LinearLayout style="@style/ScoresBox">
-        <TextView android:id="@+id/score0" style="@style/ScoreText" />
-        <TextView android:id="@+id/score1" style="@style/ScoreText" />
-        <TextView android:id="@+id/score2" style="@style/ScoreText" />
-        <TextView android:id="@+id/score3" style="@style/ScoreText" />
+        <Button android:id="@+id/ans0" style="@style/ScoreText" />
+        <Button android:id="@+id/ans1" style="@style/ScoreText" />
+        <Button android:id="@+id/ans2" style="@style/ScoreText" />
+        <Button android:id="@+id/ans3" style="@style/ScoreText" />
     </LinearLayout>
 </LinearLayout>
 </FrameLayout>
